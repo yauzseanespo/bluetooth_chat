@@ -1,0 +1,27 @@
+{
+  "build": {
+    "distDir": "../dist",
+    "devPath": "../dist"
+  },
+  "package": {
+    "productName": "Bluetooth Chat",
+    "version": "0.1.0"
+  },
+  "tauri": {
+    "bundle": {
+      "active": true,
+      "identifier": "com.bluetooth.chat",
+      "icon": ["icons/icon.ico"]
+    },
+    "allowlist": {
+      "all": true
+    },
+    "windows": [
+      {
+        "title": "Bluetooth Chat",
+        "width": 800,
+        "height": 600
+      }
+    ]
+  }
+}
