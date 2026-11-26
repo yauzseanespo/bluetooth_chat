@@ -199,11 +199,17 @@
   <div class="layout">
     <aside class="sidebar">
       <button id="scanBtn">Cihazları Tara (BLE)</button>
+      <button id="advBtn" style="background: #475569;">Yayın Başlat (Peripheral)</button>
       <div class="device-list" id="deviceList">
         <div class="msg sys">Tarama başlatmak için butona basın.</div>
       </div>
       <div class="key-box">
-        <span>Oturum Anahtarı (64 hex):</span>
+        <span>Açık Anahtarım (X25519):</span>
+        <input type="text" id="pubKeyInput" readonly />
+        <span>Karşı Açık Anahtar (64 hex):</span>
+        <input type="text" id="peerPubInput" placeholder="Karşı cihazın açık anahtarı..." />
+        <button id="kxBtn" style="padding: 5px 10px; font-size: 12px;">Anahtar Değişimi Yap</button>
+        <span style="margin-top: 4px;">Oturum Anahtarı (64 hex):</span>
         <input type="text" id="keyInput" placeholder="64 karakter hex anahtar..." />
         <button id="saveKeyBtn" style="padding: 5px 10px; font-size: 12px;">Anahtarı Güncelle</button>
       </div>
@@ -236,8 +242,33 @@
     const encryptModeEl = document.getElementById("encryptMode");
     const keyInput = document.getElementById("keyInput");
     const saveKeyBtn = document.getElementById("saveKeyBtn");
+    const pubKeyInput = document.getElementById("pubKeyInput");
+    const peerPubInput = document.getElementById("peerPubInput");
+    const kxBtn = document.getElementById("kxBtn");
+    const advBtn = document.getElementById("advBtn");
 
     let selectedDevice = null;
+    let isAdvertising = false;
+
+    advBtn.addEventListener("click", async () => {
+      try {
+        if (!isAdvertising) {
+          await invoke("start_peripheral");
+          isAdvertising = true;
+          advBtn.textContent = "Yayını Durdur (Peripheral)";
+          advBtn.style.background = "var(--success)";
+          addMsg("BLE GATT Server yayını başlatıldı.", "sys");
+        } else {
+          await invoke("stop_peripheral");
+          isAdvertising = false;
+          advBtn.textContent = "Yayın Başlat (Peripheral)";
+          advBtn.style.background = "#475569";
+          addMsg("BLE GATT Server yayını durduruldu.", "sys");
+        }
+      } catch (err) {
+        addMsg("Peripheral hatası: " + err, "sys");
+      }
+    });
 
     function addMsg(text, type) {
       const div = document.createElement("div");
@@ -250,10 +281,21 @@
     (async () => {
       try {
         keyInput.value = await invoke("get_session_key");
+        pubKeyInput.value = await invoke("get_public_key");
       } catch (e) {
         addMsg("Anahtar yüklenemedi: " + e, "sys");
       }
     })();
+
+    kxBtn.addEventListener("click", async () => {
+      try {
+        const derived = await invoke("complete_key_exchange", { peerPublicHex: peerPubInput.value });
+        keyInput.value = derived;
+        addMsg("X25519 anahtar değişimi tamamlandı.", "sys");
+      } catch (err) {
+        addMsg("Anahtar değişimi hatası: " + err, "sys");
+      }
+    });
 
     saveKeyBtn.addEventListener("click", async () => {
       try {

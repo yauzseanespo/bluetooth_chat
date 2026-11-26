@@ -81,4 +81,61 @@ mod tests {
         ciphertext[0] ^= 0xFF;
         assert!(decrypt_message(&key, &nonce, &ciphertext).is_err());
     }
+
+    #[test]
+    fn x25519_key_exchange_and_aes_gcm_roundtrip() {
+        use super::super::encryption::{decrypt_message, encrypt_message, KeyExchangePair};
+
+        let alice = KeyExchangePair::generate();
+        let bob = KeyExchangePair::generate();
+        let eve = KeyExchangePair::generate();
+
+        let alice_shared = alice.derive_shared_key(&bob.public_bytes());
+        let bob_shared = bob.derive_shared_key(&alice.public_bytes());
+        let eve_shared = eve.derive_shared_key(&alice.public_bytes());
+
+        assert_eq!(alice_shared, bob_shared);
+        assert_ne!(alice_shared, eve_shared);
+
+        let msg = b"End-to-end X25519 + AES-256-GCM message";
+        let (nonce, ciphertext) = encrypt_message(&alice_shared, msg).expect("encrypt");
+        let decrypted = decrypt_message(&bob_shared, &nonce, &ciphertext).expect("decrypt");
+        assert_eq!(decrypted, msg);
+    }
+
+    #[test]
+    fn mtu_chunking_and_reassembly() {
+        use super::super::framing::{chunk_message, FrameAssembler};
+
+        let payload = b"Uzun bir Bluetooth sohbet mesaji - 20 byte MTU parcalama testi!";
+        let chunks = chunk_message(payload, 20).expect("chunk");
+        assert!(chunks.len() > 1);
+        assert!(chunks.iter().all(|c| c.len() <= 20));
+
+        // Reassemble out of order (reverse) to verify sequence handling
+        let mut assembler = FrameAssembler::new();
+        let mut reassembled = None;
+        for chunk in chunks.iter().rev() {
+            reassembled = assembler.push_chunk(chunk).expect("push");
+        }
+        assert_eq!(reassembled.expect("complete"), payload);
+
+        // Invalid MTU and short frame checks
+        assert!(chunk_message(payload, 5).is_err());
+        assert!(assembler.push_chunk(&[0, 1]).is_err());
+    }
+
+    #[cfg(all(target_os = "windows", any(feature = "btle", feature = "classic")))]
+    #[test]
+    fn windows_ble_peripheral_basics() {
+        use super::super::windows_ble_peripheral::WindowsBlePeripheral;
+
+        let peripheral = WindowsBlePeripheral::new();
+        assert!(!peripheral.is_advertising());
+        assert!(peripheral.take_received().is_empty());
+
+        // Notifying before starting GATT service provider should fail cleanly
+        let err = peripheral.notify(b"hello").unwrap_err();
+        assert!(err.contains("not started"));
+    }
 }
