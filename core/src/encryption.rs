@@ -1,32 +1,32 @@
-/// Generate a deterministic 32‑byte key (for demo purposes).
-/// In a real app you would use a secure RNG and store the key safely.
+use aes_gcm::{
+    aead::{Aead, AeadCore, KeyInit, OsRng},
+    Aes256Gcm, Key, Nonce,
+};
+
+/// Generate a cryptographically secure random 256-bit (32-byte) AES-GCM key.
 pub fn generate_key() -> [u8; 32] {
-    // Simple pattern – not secure!
-    let mut key = [0u8; 32];
-    for i in 0..32 {
-        key[i] = (i as u8).wrapping_mul(7);
-    }
-    key
+    Aes256Gcm::generate_key(OsRng).into()
 }
 
-/// Very simple XOR “encryption”. Returns (nonce, ciphertext).
-/// The nonce is just a random‑looking 12‑byte array generated from the key.
+/// Encrypt `plaintext` with AES-256-GCM using a fresh random 96-bit nonce.
+/// Returns `(nonce, ciphertext_with_auth_tag)`.
 pub fn encrypt_message(key: &[u8; 32], plaintext: &[u8]) -> Result<(Vec<u8>, Vec<u8>), String> {
-    // Derive a pseudo‑nonce from the key (first 12 bytes XORed with length).
-    let mut nonce = key[0..12].to_vec();
-    let len = plaintext.len() as u8;
-    for b in &mut nonce { *b ^= len; }
-    let ciphertext: Vec<u8> = plaintext.iter().zip(nonce.iter().cycle()).map(|(p, n)| p ^ n).collect();
-    Ok((nonce, ciphertext))
+    let cipher = Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(key));
+    let nonce = Aes256Gcm::generate_nonce(&mut OsRng);
+    let ciphertext = cipher
+        .encrypt(&nonce, plaintext)
+        .map_err(|e| format!("AES-GCM encryption failed: {e}"))?;
+    Ok((nonce.to_vec(), ciphertext))
 }
 
-/// Decrypt the XOR ciphertext using the same nonce.
+/// Decrypt `ciphertext` with AES-256-GCM and verify its authentication tag.
 pub fn decrypt_message(key: &[u8; 32], nonce: &[u8], ciphertext: &[u8]) -> Result<Vec<u8>, String> {
-    // Re‑derive the same pseudo‑nonce (should match the passed one).
-    let expected_nonce: Vec<u8> = key[0..12].iter().map(|b| b ^ (ciphertext.len() as u8)).collect();
-    if expected_nonce != nonce {
-        return Err("Invalid nonce".to_string());
+    if nonce.len() != 12 {
+        return Err(format!("Invalid nonce length: expected 12 bytes, got {}", nonce.len()));
     }
-    let plaintext: Vec<u8> = ciphertext.iter().zip(nonce.iter().cycle()).map(|(c, n)| c ^ n).collect();
-    Ok(plaintext)
+    let cipher = Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(key));
+    let nonce = Nonce::from_slice(nonce);
+    cipher
+        .decrypt(nonce, ciphertext)
+        .map_err(|e| format!("AES-GCM decryption failed: {e}"))
 }

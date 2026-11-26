@@ -6,12 +6,14 @@ Cross-platform Bluetooth chat application built with Rust.
 
 ```
 bluetooth_chat/
-├── core/           # Shared library (bluetooth_core)
-│   ├── bluetooth   # BluetoothAdapter trait + MockAdapter
-│   └── encryption  # XOR-based encryption (demo)
-├── desktop/        # Tauri desktop app (Windows/macOS/Linux)
-├── mobile_bridge/  # Flutter bridge via flutter_rust_bridge
-└── dist/           # Frontend assets (placeholder)
+├── .github/workflows/  # CI workflow (Windows & Ubuntu)
+├── core/               # Shared library (bluetooth_core)
+│   ├── bluetooth       # BluetoothAdapter trait + MockAdapter
+│   ├── windows_ble     # Windows BLE (WinRT) adapter
+│   └── encryption      # AES-256-GCM authenticated encryption
+├── desktop/            # Tauri desktop app (Windows/macOS/Linux)
+├── mobile_bridge/      # Flutter FFI bridge via flutter_rust_bridge
+└── dist/               # Desktop frontend UI
 ```
 
 ## Prerequisites
@@ -22,10 +24,10 @@ bluetooth_chat/
 ## Build & Run
 
 ```bash
-# Run tests
+# Run all workspace tests
 cargo test
 
-# Run desktop app
+# Run desktop app (supports both real Windows BLE & Mock Mode + AES-256-GCM)
 cargo run -p desktop
 
 # Release build
@@ -36,16 +38,16 @@ cargo build --release
 
 | Crate | Description |
 |-------|-------------|
-| `bluetooth_core` | Bluetooth adapter trait, device model, mock adapter, XOR encryption |
-| `desktop` | Tauri-based desktop GUI |
-| `mobile_bridge` | FFI bridge for Flutter mobile app |
+| `bluetooth_core` | `BluetoothAdapter` trait, `MockAdapter`, `WindowsBleAdapter` (WinRT BLE), AES-256-GCM encryption |
+| `desktop` | Tauri-based desktop GUI with BLE scanning, session key management & encrypted chat |
+| `mobile_bridge` | FFI bridge for Flutter (`discover_devices`, `connect_device`, `send_encrypted_message`, `receive_messages`, `StreamSink`) |
 
 ## Status
 
-🟢 Core library — tests passing  
-🟡 Desktop app — skeleton UI (placeholder HTML)  
-🟡 Mobile bridge — placeholder FFI  
-🔴 Real Bluetooth — not yet implemented  
+- 🟢 Core library (`bluetooth_core`) — Windows BLE + AES-256-GCM + unit tests passing
+- 🟢 Desktop app (`desktop`) — Tauri UI connected to BLE & AES-256-GCM + unit tests passing
+- 🟢 Mobile bridge (`mobile_bridge`) — Flutter FFI API + unit tests passing
+- 🟢 CI/CD — GitHub Actions workflow configured
 
 ## License
 

@@ -29,4 +29,56 @@ mod tests {
             assert_eq!(decrypted, plaintext);
         });
     }
+
+    #[cfg(all(target_os = "windows", any(feature = "btle", feature = "classic")))]
+    #[test]
+    fn windows_ble_adapter_basics() {
+        use super::super::bluetooth::BluetoothDevice;
+        use super::super::windows_ble::WindowsBleAdapter;
+
+        let rt = Runtime::new().unwrap();
+        rt.block_on(async {
+            let adapter = WindowsBleAdapter::new();
+
+            // Sending before connecting should fail cleanly
+            let err = adapter.send(b"ping").await.unwrap_err();
+            assert!(err.contains("Not connected"));
+
+            // Receiving with empty buffer should return empty Vec
+            let empty = adapter.receive().await.unwrap();
+            assert!(empty.is_empty());
+
+            // Connecting with invalid address should return parse error
+            let invalid = BluetoothDevice {
+                name: "Bad".into(),
+                address: "invalid-mac".into(),
+            };
+            let conn_err = adapter.connect(&invalid).await.unwrap_err();
+            assert!(conn_err.contains("Invalid Bluetooth address"));
+        });
+    }
+
+    #[test]
+    fn aes_gcm_encryption_validation() {
+        use super::super::encryption::{decrypt_message, encrypt_message, generate_key};
+
+        let key = generate_key();
+        let wrong_key = generate_key();
+        assert_ne!(key, wrong_key);
+
+        let plaintext = b"Secret Bluetooth payload";
+        let (nonce, mut ciphertext) = encrypt_message(&key, plaintext).expect("encrypt");
+        assert_eq!(nonce.len(), 12);
+        assert_ne!(ciphertext, plaintext);
+
+        // Wrong key must fail authentication
+        assert!(decrypt_message(&wrong_key, &nonce, &ciphertext).is_err());
+
+        // Invalid nonce length must fail
+        assert!(decrypt_message(&key, &[0u8; 8], &ciphertext).is_err());
+
+        // Tampered ciphertext must fail authentication
+        ciphertext[0] ^= 0xFF;
+        assert!(decrypt_message(&key, &nonce, &ciphertext).is_err());
+    }
 }

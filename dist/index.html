@@ -1,5 +1,346 @@
 <!DOCTYPE html>
-<html>
-<head><meta charset="utf-8"><title>Bluetooth Chat</title></head>
-<body><h1>Bluetooth Chat</h1><p>UI coming soon.</p></body>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bluetooth Chat</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --panel: #1e293b;
+      --border: #334155;
+      --text: #f1f5f9;
+      --muted: #94a3b8;
+      --accent: #3b82f6;
+      --accent-hover: #2563eb;
+      --success: #22c55e;
+      --danger: #ef4444;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      padding: 12px 18px;
+      background: var(--panel);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    header h1 {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 600;
+    }
+    .header-controls {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .mode-toggle {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+    }
+    .layout {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      min-height: 0;
+    }
+    .sidebar {
+      border-right: 1px solid var(--border);
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      background: #162032;
+      min-height: 0;
+    }
+    .key-box {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding: 10px;
+      border-radius: 6px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      font-size: 12px;
+    }
+    .key-box input {
+      font-family: monospace;
+      font-size: 11px;
+      padding: 6px 8px;
+    }
+    button {
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      padding: 9px 14px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+    }
+    button:hover:not(:disabled) { background: var(--accent-hover); }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .device-list {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .device-item {
+      padding: 10px;
+      border-radius: 6px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .device-item:hover { border-color: var(--accent); }
+    .device-item.active { border-color: var(--success); }
+    .device-name { font-size: 13px; font-weight: 600; }
+    .device-addr { font-size: 11px; color: var(--muted); font-family: monospace; }
+    .chat-area {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+    .status-bar {
+      padding: 8px 16px;
+      font-size: 12px;
+      color: var(--muted);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .messages {
+      flex: 1;
+      padding: 16px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .msg {
+      padding: 8px 12px;
+      border-radius: 8px;
+      max-width: 75%;
+      font-size: 14px;
+      line-height: 1.4;
+      word-break: break-word;
+    }
+    .msg.sent {
+      align-self: flex-end;
+      background: var(--accent);
+    }
+    .msg.recv {
+      align-self: flex-start;
+      background: var(--panel);
+      border: 1px solid var(--border);
+    }
+    .msg.sys {
+      align-self: center;
+      background: transparent;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .composer {
+      padding: 12px 16px;
+      border-top: 1px solid var(--border);
+      background: var(--panel);
+      display: flex;
+      gap: 8px;
+    }
+    input[type="text"] {
+      flex: 1;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 9px 12px;
+      color: var(--text);
+      font-size: 14px;
+      outline: none;
+    }
+    input[type="text"]:focus { border-color: var(--accent); }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Bluetooth Chat</h1>
+    <div class="header-controls">
+      <label class="mode-toggle">
+        <input type="checkbox" id="encryptMode" checked />
+        AES-256-GCM Şifreli
+      </label>
+      <label class="mode-toggle">
+        <input type="checkbox" id="mockMode" />
+        Mock Modu
+      </label>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <button id="scanBtn">Cihazları Tara (BLE)</button>
+      <div class="device-list" id="deviceList">
+        <div class="msg sys">Tarama başlatmak için butona basın.</div>
+      </div>
+      <div class="key-box">
+        <span>Oturum Anahtarı (64 hex):</span>
+        <input type="text" id="keyInput" placeholder="64 karakter hex anahtar..." />
+        <button id="saveKeyBtn" style="padding: 5px 10px; font-size: 12px;">Anahtarı Güncelle</button>
+      </div>
+    </aside>
+
+    <main class="chat-area">
+      <div class="status-bar">
+        <span id="connStatus">Bağlı cihaz yok</span>
+        <button id="pollBtn" style="padding: 3px 10px; font-size: 11px;">Mesajları Al</button>
+      </div>
+      <div class="messages" id="messages"></div>
+      <form class="composer" id="chatForm">
+        <input type="text" id="msgInput" placeholder="Mesaj yazın..." disabled />
+        <button type="submit" id="sendBtn" disabled>Gönder</button>
+      </form>
+    </main>
+  </div>
+
+  <script>
+    const invoke = window.__TAURI__.tauri.invoke;
+    const scanBtn = document.getElementById("scanBtn");
+    const deviceList = document.getElementById("deviceList");
+    const connStatus = document.getElementById("connStatus");
+    const messages = document.getElementById("messages");
+    const chatForm = document.getElementById("chatForm");
+    const msgInput = document.getElementById("msgInput");
+    const sendBtn = document.getElementById("sendBtn");
+    const pollBtn = document.getElementById("pollBtn");
+    const mockModeEl = document.getElementById("mockMode");
+    const encryptModeEl = document.getElementById("encryptMode");
+    const keyInput = document.getElementById("keyInput");
+    const saveKeyBtn = document.getElementById("saveKeyBtn");
+
+    let selectedDevice = null;
+
+    function addMsg(text, type) {
+      const div = document.createElement("div");
+      div.className = "msg " + type;
+      div.textContent = text;
+      messages.appendChild(div);
+      messages.scrollTop = messages.scrollHeight;
+    }
+
+    (async () => {
+      try {
+        keyInput.value = await invoke("get_session_key");
+      } catch (e) {
+        addMsg("Anahtar yüklenemedi: " + e, "sys");
+      }
+    })();
+
+    saveKeyBtn.addEventListener("click", async () => {
+      try {
+        await invoke("set_session_key", { hexKey: keyInput.value });
+        addMsg("Oturum anahtarı güncellendi.", "sys");
+      } catch (err) {
+        addMsg("Anahtar hatası: " + err, "sys");
+      }
+    });
+
+    scanBtn.addEventListener("click", async () => {
+      scanBtn.disabled = true;
+      scanBtn.textContent = "Taranıyor...";
+      deviceList.innerHTML = '<div class="msg sys">BLE cihazları taranıyor...</div>';
+      try {
+        const devices = await invoke("discover_devices", { useMock: mockModeEl.checked });
+        deviceList.innerHTML = "";
+        if (devices.length === 0) {
+          deviceList.innerHTML = '<div class="msg sys">Yakında BLE cihazı bulunamadı.</div>';
+        } else {
+          devices.forEach((dev) => {
+            const item = document.createElement("div");
+            item.className = "device-item";
+            item.innerHTML = `<span class="device-name"></span><span class="device-addr"></span>`;
+            item.querySelector(".device-name").textContent = dev.name;
+            item.querySelector(".device-addr").textContent = dev.address;
+            item.addEventListener("click", () => connectTo(dev, item));
+            deviceList.appendChild(item);
+          });
+        }
+      } catch (err) {
+        deviceList.innerHTML = `<div class="msg sys">Hata: ${err}</div>`;
+      } finally {
+        scanBtn.disabled = false;
+        scanBtn.textContent = "Cihazları Tara (BLE)";
+      }
+    });
+
+    async function connectTo(dev, itemEl) {
+      connStatus.textContent = `Bağlanılıyor: ${dev.name}...`;
+      try {
+        await invoke("connect_device", { device: dev, useMock: mockModeEl.checked });
+        document.querySelectorAll(".device-item").forEach((el) => el.classList.remove("active"));
+        itemEl.classList.add("active");
+        selectedDevice = dev;
+        connStatus.textContent = `Bağlı: ${dev.name} (${dev.address})`;
+        msgInput.disabled = false;
+        sendBtn.disabled = false;
+        addMsg(`${dev.name} cihazına bağlanıldı.`, "sys");
+      } catch (err) {
+        connStatus.textContent = "Bağlantı başarısız";
+        addMsg(`Bağlantı hatası: ${err}`, "sys");
+      }
+    }
+
+    chatForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const text = msgInput.value.trim();
+      if (!text || !selectedDevice) return;
+      msgInput.value = "";
+      try {
+        await invoke("send_message", {
+          message: text,
+          encrypted: encryptModeEl.checked,
+          useMock: mockModeEl.checked
+        });
+        addMsg(text, "sent");
+      } catch (err) {
+        addMsg(`Gönderme hatası: ${err}`, "sys");
+      }
+    });
+
+    pollBtn.addEventListener("click", async () => {
+      try {
+        const data = await invoke("receive_messages", {
+          encrypted: encryptModeEl.checked,
+          useMock: mockModeEl.checked
+        });
+        if (data && data.length > 0) {
+          addMsg(data, "recv");
+        } else {
+          addMsg("Yeni mesaj yok.", "sys");
+        }
+      } catch (err) {
+        addMsg(`Alma hatası: ${err}`, "sys");
+      }
+    });
+  </script>
+</body>
 </html>

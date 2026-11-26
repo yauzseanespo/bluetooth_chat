@@ -4,11 +4,12 @@ version = "0.1.0"
 edition = "2021"
 
 [lib]
-crate-type = ["staticlib", "cdylib"]
+crate-type = ["staticlib", "cdylib", "rlib"]
 
 [dependencies]
 bluetooth_core = { path = "../core" }
 flutter_rust_bridge = "1.78"
 serde = { version = "1.0", features = ["derive"] }
+tokio = { version = "1", features = ["rt", "sync"] }
 
 [build-dependencies]
